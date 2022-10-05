@@ -1,10 +1,13 @@
 ﻿##############################################################################################################
-# This is the main function to do back-testing of Factor Model
+# This is the main function to do back-testing for Factor Model
 ##############################################################################################################
 
 import backtrader as bt
 import datetime
 import pandas as pd
+# Decide whether to import download data py file
+import SecurityData
+import quantstats
 
 class PandasData_more(bt.feeds.PandasData):
     lines = ('ROE', 'EP', ) # 要添加的线
@@ -83,9 +86,11 @@ class StockSelectStrategy(bt.Strategy):
 
 # 实例化 cerebro
 cerebro = bt.Cerebro()
+
 # 读取行情数据
 month_price = pd.read_csv("./data/month_price.csv", parse_dates=['datetime'])
 month_price = month_price.set_index(['datetime']).sort_index() # 将datetime设置成index
+
 # 按股票代码，依次循环传入数据
 for stock in month_price['sec_code'].unique():
     # 日期对齐
@@ -98,11 +103,15 @@ for stock in month_price['sec_code'].unique():
     data_.loc[:,['open','high','low','close','EP','ROE']] = data_.loc[:,['open','high','low','close']].fillna(0.0000001)
     # 导入数据
     datafeed = PandasData_more(dataname=data_,
-                               fromdate=datetime.datetime(2019,1,31),
+                               fromdate=datetime.datetime(2020,1,31),
                                todate=datetime.datetime(2021,8,31),
                                timeframe=bt.TimeFrame.Months) # 将数据的时间周期设置为月度
     cerebro.adddata(datafeed, name=stock) # 通过 name 实现数据集与股票的一一对应
     print(f"{stock} Done !")
+
+# Start Backtesting...
+print("Start Backtesting...")
+
 # 初始资金 100,000,000
 cerebro.broker.setcash(100000000.0)
 # 佣金，双边各 0.0003
@@ -113,8 +122,23 @@ cerebro.broker.set_slippage_perc(perc=0.0001)
 cerebro.addstrategy(StockSelectStrategy)
 # 返回收益率时序
 cerebro.addanalyzer(bt.analyzers.TimeReturn, _name='_TimeReturn')
-result = cerebro.run()
-# 得到收益率时序
-ret = pd.Series(result[0].analyzers._TimeReturn.get_analysis())
 
-cerebro.plot(width=28, height=28)[0][0]
+# For more output
+cerebro.addanalyzer(bt.analyzers.PyFolio, _name='PyFolio')
+
+results = cerebro.run()
+cerebro.run()
+
+# 得到收益率时序
+ret = pd.Series(results[0].analyzers._TimeReturn.get_analysis())
+
+# Output return
+ret.to_csv("factor_model_return.csv")
+
+strat = results[0]
+
+portfolio_stats = strat.analyzers.getbyname('PyFolio')
+returns, positions, transactions, gross_lev = portfolio_stats.get_pf_items()
+returns.index = returns.index.tz_convert(None)
+
+quantstats.reports.html(returns, output='stats.html', title='Factor Model')

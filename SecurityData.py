@@ -23,8 +23,8 @@ class SecurityData():
     # Define Security Return
     securities_return = []
     
-    def __init__(self, security_list, start_date, end_date):
-        self.security_list = security_list
+    def __init__(self, securities_list, start_date, end_date):
+        self.securities_list = securities_list
         self.start_date = start_date
         self.end_date = end_date
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     # Print Results
     print(securities_data_clean)
 
-    # Output to Excel
+    # Output to CSV
     print("Outputing to CSV...")
     securities_data_clean.to_csv("./data/SecurityData.csv", index = False)
 
